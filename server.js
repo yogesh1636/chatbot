@@ -1,208 +1,148 @@
-const express = require("express");
-const cors = require("cors");
+const express = require('express');
+const cors = require('cors');
 
 const app = express();
-const PORT = 3000;
+const PORT = 3001;
 
 app.use(cors());
 app.use(express.json());
 
-/* ===============================
-   In-memory storage (demo)
-================================ */
-const users = {};                 // { username: password }
-const chatHistory = {};           // { username: [ {user, bot, time} ] }
-const conversationContext = {};   // { username: [ {role, content} ] }
+const users = {};
+const chatHistory = {};
+const conversationContext = {};
 
-/* ===============================
-   AUTH ROUTES
-================================ */
-
-// Signup
-app.post("/signup", (req, res) => {
+app.post('/signup', (req, res) => {
   const { username, password } = req.body;
-
-  if (!username || !password) {
-    return res.status(400).json({ error: "Username and password required" });
-  }
-
-  if (users[username]) {
-    return res.json({ error: "Username already exists" });
-  }
-
+  if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+  
+  if (users[username]) return res.json({ error: 'Username already exists' });
+  
   users[username] = password;
   chatHistory[username] = [];
   conversationContext[username] = [];
-
-  res.json({ success: true });
+  
+  res.json({ success: true, history: [] });
 });
 
-// Login
-app.post("/login", (req, res) => {
+app.post('/login', (req, res) => {
   const { username, password } = req.body;
-
-  if (!username || !password) {
-    return res.status(400).json({ error: "Username and password required" });
+  if (!username) return res.status(400).json({ error: 'Username required' });
+  
+  if (password && users[username] && users[username] !== password) {
+    return res.json({ error: 'Invalid password' });
   }
-
-  if (!users[username]) {
-    return res.json({ error: "User not found. Please signup." });
-  }
-
-  if (users[username] !== password) {
-    return res.json({ error: "Invalid password" });
-  }
-
-  res.json({
-    success: true,
-    history: chatHistory[username]
-  });
+  
+  if (!users[username]) users[username] = password || true;
+  if (!chatHistory[username]) chatHistory[username] = [];
+  if (!conversationContext[username]) conversationContext[username] = [];
+  
+  res.json({ success: true, history: chatHistory[username] });
 });
 
-/* ===============================
-   RULE-BASED RESPONSES
-================================ */
-
-function getRuleBasedResponse(msg) {
-  if (/\b(hi|hello|hey|yo)\b/.test(msg)) {
-    return "Hello! 😊 How can I help you today?";
-  }
-
-  if (/\b(bye|goodbye|exit)\b/.test(msg)) {
-    return "Goodbye! 👋 Have a great day!";
-  }
-
-  if (/\b(how are you)\b/.test(msg)) {
-    return "I'm doing great 😄 Thanks for asking!";
-  }
-
-  if (/\b(thank|thanks)\b/.test(msg)) {
-    return "You're welcome! 🙌";
-  }
-
-  if (/\b(time)\b/.test(msg)) {
+function getRuleBasedResponse(userMessage) {
+  if (/\b(hi|hello|hey|hola|greetings|sup|yo)\b/.test(userMessage)) {
+    return 'Hello! How can I help you today? 😊';
+  } else if (/\b(bye|goodbye|exit|quit|see you|later|cya)\b/.test(userMessage)) {
+    return 'Goodbye! Have a great day! 👋';
+  } else if (/\b(how are you|how r u|hows it going|whats up|wassup)\b/.test(userMessage)) {
+    return 'I am doing great! Thanks for asking. How can I assist you? 😊';
+  } else if (/\b(thank|thanks|thx|appreciate|grateful)\b/.test(userMessage)) {
+    return 'You\'re welcome! Happy to help! 😊';
+  } else if (/\b(time|clock|hour)\b/.test(userMessage)) {
     return `Current time is ${new Date().toLocaleTimeString()} ⏰`;
-  }
-
-  if (/\b(date|today)\b/.test(msg)) {
+  } else if (/\b(date|day|today|calendar)\b/.test(userMessage)) {
     return `Today's date is ${new Date().toLocaleDateString()} 📅`;
-  }
-
-  // Math
-  const mathMatch = msg.match(/(\d+)\s*([+\-*/])\s*(\d+)/);
-  if (mathMatch) {
-    const a = Number(mathMatch[1]);
-    const b = Number(mathMatch[3]);
-    const op = mathMatch[2];
-
-    let result;
-    switch (op) {
-      case "+": result = a + b; break;
-      case "-": result = a - b; break;
-      case "*": result = a * b; break;
-      case "/": result = b !== 0 ? a / b : "Infinity"; break;
+  } else if (/\b(joke|funny|laugh|humor)\b/.test(userMessage)) {
+    const jokes = [
+      'Why don\'t scientists trust atoms? Because they make up everything! 😄',
+      'Why did the scarecrow win an award? He was outstanding in his field! 🌾',
+      'What do you call a bear with no teeth? A gummy bear! 🐻'
+    ];
+    return jokes[Math.floor(Math.random() * jokes.length)];
+  } else if (/\d+\s*[+\-*/]\s*\d+/.test(userMessage)) {
+    const match = userMessage.match(/(\d+)\s*([+\-*/])\s*(\d+)/);
+    if (match) {
+      const num1 = parseFloat(match[1]);
+      const operator = match[2];
+      const num2 = parseFloat(match[3]);
+      let result;
+      switch(operator) {
+        case '+': result = num1 + num2; break;
+        case '-': result = num1 - num2; break;
+        case '*': result = num1 * num2; break;
+        case '/': result = num2 !== 0 ? num1 / num2 : 'Cannot divide by zero'; break;
+      }
+      return `${num1} ${operator} ${num2} = ${result} 🔢`;
     }
-    return `${a} ${op} ${b} = ${result} 🔢`;
   }
-
   return null;
 }
 
-/* ===============================
-   SMART AUTO RESPONSE
-================================ */
-
 function generateSmartResponse(message, context) {
   const msg = message.toLowerCase();
-
-  const lastUserMsg = context
-    .filter(m => m.role === "user")
-    .slice(-1)[0]?.content;
-
-  if (msg.includes("explain") || msg.includes("what is")) {
-    return `Sure! Here's a simple explanation: "${message}" is a concept that depends on context. Could you tell me your level (beginner/intermediate)? 📘`;
+  
+  if (msg.includes('explain') || msg.includes('what is') || msg.includes('tell me about')) {
+    return `I'd be happy to help explain that! Based on your question about "${message}", I can provide information. However, for detailed explanations, I recommend checking reliable sources or asking more specific questions. What would you like to know? 📚`;
+  } else if (msg.includes('how to') || msg.includes('how do')) {
+    return `Great question! To help you with "${message}", I suggest breaking it down into steps. Could you be more specific about what you're trying to accomplish? I'm here to guide you! 🎯`;
+  } else if (msg.includes('why') || msg.includes('reason')) {
+    return `That's an interesting question! The answer to "${message}" can vary depending on context. Could you provide more details so I can give you a better response? 🤔`;
+  } else if (msg.includes('best') || msg.includes('recommend')) {
+    return `I'd love to help with recommendations! For "${message}", it really depends on your specific needs and preferences. What are you looking for exactly? 💡`;
+  } else {
+    return `I understand you're asking about "${message}". While I can help with general questions, time/date, jokes, and calculations, for complex topics I recommend being more specific. How can I assist you better? 💬`;
   }
-
-  if (msg.includes("how")) {
-    return `Good question! To help with "${message}", let's go step by step. What part are you stuck on? 🧩`;
-  }
-
-  if (msg.includes("why")) {
-    return `That's a thoughtful question 🤔 The reason depends on multiple factors. Can you give a bit more detail?`;
-  }
-
-  const fallbackReplies = [
-    "Interesting 🤔 Can you explain more?",
-    "I see! Tell me what you're trying to achieve.",
-    "Let’s dig into that a bit more.",
-    lastUserMsg
-      ? `Earlier you mentioned "${lastUserMsg}". How does this connect?`
-      : "I'm listening 👂 Tell me more."
-  ];
-
-  return fallbackReplies[Math.floor(Math.random() * fallbackReplies.length)];
 }
 
-/* ===============================
-   CHAT ROUTE
-================================ */
-
-app.post("/chat", (req, res) => {
-  const { username, message } = req.body;
-
-  if (!username || !message) {
-    return res.status(400).json({
-      error: "Username and message are required"
-    });
-  }
-
-  if (!users[username]) {
-    return res.status(401).json({
-      error: "User not logged in"
-    });
-  }
-
-  const userMsg = message.toLowerCase().trim();
-
-  let botReply = getRuleBasedResponse(userMsg);
-
-  if (!botReply) {
-    const context = conversationContext[username];
+app.post('/chat', async (req, res) => {
+  const { message, username } = req.body;
+  const userMessage = message.toLowerCase().trim();
+  let botReply;
+  
+  const ruleBasedReply = getRuleBasedResponse(userMessage);
+  
+  if (ruleBasedReply) {
+    botReply = ruleBasedReply;
+  } else {
+    const context = conversationContext[username] || [];
     botReply = generateSmartResponse(message, context);
-
-    // Save context
-    context.push({ role: "user", content: message });
-    context.push({ role: "assistant", content: botReply });
-
-    // Limit memory
-    if (context.length > 12) {
-      conversationContext[username] = context.slice(-12);
+    
+    conversationContext[username] = conversationContext[username] || [];
+    conversationContext[username].push({ role: 'user', content: message });
+    conversationContext[username].push({ role: 'assistant', content: botReply });
+    
+    if (conversationContext[username].length > 10) {
+      conversationContext[username] = conversationContext[username].slice(-10);
     }
   }
 
-  // Save chat history
-  chatHistory[username].push({
-    user: message,
-    bot: botReply,
-    time: new Date().toISOString()
-  });
+  if (username && chatHistory[username]) {
+    chatHistory[username].push({ user: message, bot: botReply, time: new Date().toISOString() });
+  }
 
   res.json({ reply: botReply });
 });
 
-/* ===============================
-   SERVER START
-================================ */
-
 app.listen(PORT, () => {
   console.log(`
-========================================
- 🤖 CHATGPT-LITE SERVER RUNNING
-========================================
- 🌐 URL      : http://localhost:${PORT}
- 👤 Users    : In-memory (demo)
- 🧠 Memory   : Enabled
- 💬 Auto AI  : Smart responses
-========================================
-`);
+  ┌────────────────────────────────────────┐
+  │                                        │
+  │        🤖 AI CHATBOT SERVER 🤖        │
+  │                                        │
+  └────────────────────────────────────────┘
+
+  ✅ Server Status: ONLINE
+  🌐 Server URL: http://localhost:${PORT}
+  📅 Started: ${new Date().toLocaleString()}
+  
+  🚀 Features Available:
+     • AI-Powered Smart Responses
+     • Conversation Context Memory
+     • User Authentication (Login/Signup)
+     • Chat History Storage
+     • Rule-Based Quick Replies
+     • Math Calculations
+  
+  💬 Ready to chat! Open index.html in your browser.
+  `);
 });
