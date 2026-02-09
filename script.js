@@ -59,7 +59,6 @@ const welcomeScreen = document.getElementById('welcomeScreen');
 const chatScreen = document.getElementById('chatScreen');
 const usernameInput = document.getElementById('usernameInput');
 const emailInput = document.getElementById('emailInput');
-const ageInput = document.getElementById('ageInput');
 const genderInput = document.getElementById('genderInput');
 const passwordInput = document.getElementById('passwordInput');
 const termsCheckbox = document.getElementById('termsCheckbox');
