@@ -1,26 +1,26 @@
-# 🤖 AI Chatbot Project
+🤖 AI Chatbot Project
 
-[![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen)](https://yourusername.github.io/chatbot/frontend/)
-[![GitHub Pages](https://img.shields.io/badge/GitHub-Pages-blue)](https://github.com/yourusername/chatbot)
+[![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen)](https://yourusername.github.io/chatbot/index.html)
+[![GitHub Pages](https://img.shields.io/badge/GitHub-Pages-blue)](https://github.com/yogesh1636/chatbot)
 [![Supabase](https://img.shields.io/badge/Backend-Supabase-green)](https://supabase.com)
 
 A feature-rich AI chatbot with authentication, chat history management, 900+ trivia games, and interactive animations built with HTML, JavaScript, and Supabase backend.
 
-## 🚀 Quick Start
+🚀 Quick Start
 
-### Option 1: GitHub Pages (Recommended)
-1. **[Open Live Demo](https://yourusername.github.io/chatbot/frontend/)** - Click to use immediately
+Option 1: GitHub Pages (Recommended)
+1. [Open Live Demo](https://yogesh1636.github.io/chatbot/index.html) - Click to use immediately
 2. Sign up with username, email, password (age 18+)
 3. Explore welcome dashboard and start chatting
 
-### Option 2: Local Setup
+ Option 2: Local Setup
 ```bash
 git clone https://github.com/yourusername/chatbot.git
 cd chatbot
 # Open frontend/index.html in your browser
 ```
 
-### Supabase Configuration
+  Supabase Configuration
 Update credentials in `script.js`:
 ```javascript
 const SUPABASE_URL = 'https://nvdznelwrkvmbudscqcy.supabase.co';
@@ -29,7 +29,7 @@ const SUPABASE_ANON_KEY = 'your-anon-key';
 
 Run SQL setup from `DATABASE_SETUP.md` to create required tables.
 
-## 📁 Project Structure
+→ 📁 Project Structure
 ```
 chatbot/
 ├── frontend/
@@ -44,9 +44,9 @@ chatbot/
 └── README.md
 ```
 
-## 🌐 GitHub Pages Deployment
+→ 🌐 GitHub Pages Deployment
 
-### Deploy Your Own Version:
+  Deploy Your Own Version:
 1. **Fork this repository**
 2. Go to **Settings** > **Pages**
 3. Source: **Deploy from a branch**
@@ -54,22 +54,22 @@ chatbot/
 5. Click **Save**
 6. Access at: `https://yourusername.github.io/chatbot/frontend/`
 
-### Important Notes:
+* Important Notes:
 - Main entry point: `frontend/index.html`
 - Update Supabase credentials before deployment
 - Ensure `images/` folder is committed
 - Database setup required for full functionality
 
-## 🎯 Features
+→ 🎯 Features
 
-### Authentication & Security
+* Authentication & Security
 - ✅ User signup with username, email, password
 - ✅ Age verification (18+ required)
 - ✅ Gender selection & terms acceptance
 - ✅ Secure password hashing via Supabase
 - ✅ Session management
 
-### Chat Interface
+* Chat Interface
 - ✅ Welcome dashboard with 3-panel layout
 - ✅ Real-time messaging with typing indicators
 - ✅ Chat history sidebar (last 20 conversations)
@@ -77,7 +77,7 @@ chatbot/
 - ✅ Toast notifications
 - ✅ Responsive design with glass-morphism effects
 
-### Interactive Content
+* Interactive Content
 - ✅ **900+ Trivia Games** across 9 categories:
   - Geography (100), Science (100), History (100)
   - Math (200), Animals (100), Technology (100)
@@ -88,7 +88,7 @@ chatbot/
 - ✅ **10 Riddles** with hints
 - ✅ **7 Stories** for entertainment
 
-### Smart Features
+* Smart Features
 - ✅ Math calculations (e.g., "2+2", "5*3")
 - ✅ Time & date queries
 - ✅ Context-aware responses
@@ -96,7 +96,7 @@ chatbot/
 - ✅ Game answer validation with feedback
 - ✅ Confetti animations on correct answers
 
-### Visual Effects
+* Visual Effects
 - ✅ Confetti celebrations
 - ✅ Shake, tada, neon-glow animations
 - ✅ Custom gradient scrollbars
@@ -104,15 +104,15 @@ chatbot/
 - ✅ Smooth transitions & hover effects
 - ✅ Theme toggle support
 
-## 🧠 Chatbot Capabilities
+→ 🧠 Chatbot Capabilities
 
-### Conversation
+* Conversation
 - Greetings: "hello", "hi", "hey"
 - Farewells: "bye", "goodbye", "exit"
 - Identity: "who are you", "your name"
 - Help: "help", "what can you do"
 
-### Entertainment
+* Entertainment
 - Jokes: "tell me a joke", "make me laugh"
 - Facts: "tell me a fact", "interesting fact"
 - Quotes: "inspire me", "quote"
@@ -120,25 +120,25 @@ chatbot/
 - Games: "play a game", "trivia"
 - Riddles: "riddle me", "puzzle"
 
-### Utilities
+* Utilities
 - Time: "what time is it", "current time"
 - Date: "what's the date", "today's date"
 - Math: "calculate 15*8", "what is 100/5"
 
-## 🔧 Technologies
+→ 🔧 Technologies
 
-### Frontend
+* Frontend
 - **HTML5** - Semantic structure
 - **Tailwind CSS** - Utility-first styling
 - **JavaScript (ES6+)** - Core functionality
 - **Google Fonts (Poppins)** - Typography
 
-### Backend
+* Backend
 - **Supabase** - PostgreSQL database
 - **Supabase Auth** - User authentication
 - **Supabase Realtime** - Live data sync
 
-### Database Schema
+* Database Schema
 ```sql
 -- users table
 username (TEXT, PRIMARY KEY)
@@ -157,7 +157,7 @@ archived (BOOLEAN)
 created_at (TIMESTAMP)
 ```
 
-## 📱 Usage Guide
+→ 📱 Usage Guide
 
 1. **Sign Up**: Create account with username, email, password (18+)
 2. **Welcome Dashboard**: View bot info, user manual, creator details
@@ -167,7 +167,7 @@ created_at (TIMESTAMP)
 6. **Play Games**: Answer trivia questions, get confetti on correct answers
 7. **Get Help**: Type "help" to see all commands
 
-## 🔮 Future Enhancements
+→ 🔮 Future Enhancements
 
 - [ ] AI API integration (OpenAI GPT-4, Google Gemini)
 - [ ] Voice input/output with Web Speech API
@@ -180,7 +180,7 @@ created_at (TIMESTAMP)
 - [ ] File/image sharing
 - [ ] Group chat functionality
 
-## 🤝 Contributing
+→ 🤝 Contributing
 
 Contributions welcome! Please:
 1. Fork the repository
@@ -189,11 +189,11 @@ Contributions welcome! Please:
 4. Push to branch (`git push origin feature/AmazingFeature`)
 5. Open Pull Request
 
-## 📄 License
+→ 📄 License
 
 This project is open source and available under the MIT License.
 
-## 👨‍💻 Author
+→ 👨‍💻 Author
 
 Created with ❤️ by [Your Name]
 
