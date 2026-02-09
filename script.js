@@ -118,7 +118,6 @@ function toggleAuthMode() {
 async function authenticate() {
   const username = usernameInput.value.trim();
   const email = emailInput.value.trim();
-  const age = ageInput.value.trim();
   const gender = genderInput.value;
   const password = passwordInput.value.trim();
   
@@ -128,15 +127,8 @@ async function authenticate() {
   }
   
   if (isSignUpMode) {
-    if (!email || !password || !age || !gender) {
+    if (!email || !password || !gender) {
       alert('All fields are required for signup');
-      return;
-    }
-    
-    // Age validation
-    const ageNum = parseInt(age);
-    if (isNaN(ageNum) || ageNum < 18) {
-      alert('You must be 18 years or older to sign up');
       return;
     }
     
@@ -176,7 +168,7 @@ async function authenticate() {
       // Create new user
       const { error } = await supabaseClient
         .from('users')
-        .insert([{ username, email, age: ageNum, gender, password }]);
+        .insert([{ username, email, gender, password }]);
       
       if (error) throw error;
       alert('Account created successfully! Please sign in.');
