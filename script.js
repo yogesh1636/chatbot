@@ -5,6 +5,14 @@ let isVoiceEnabled = false;
 let recognition = null;
 let isDarkTheme = false;
 let gameState = null;
+let currentChatId = null;
+let chatSessions = [];
+let usedJokes = [];
+let usedFacts = [];
+let usedQuotes = [];
+let usedGames = [];
+let usedRiddles = [];
+let usedStories = [];
 let userPreferences = {
   theme: 'light',
   notifications: true,
@@ -47,15 +55,23 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const loginScreen = document.getElementById('loginScreen');
+const welcomeScreen = document.getElementById('welcomeScreen');
 const chatScreen = document.getElementById('chatScreen');
 const usernameInput = document.getElementById('usernameInput');
 const emailInput = document.getElementById('emailInput');
+const ageInput = document.getElementById('ageInput');
+const genderInput = document.getElementById('genderInput');
 const passwordInput = document.getElementById('passwordInput');
+const termsCheckbox = document.getElementById('termsCheckbox');
+const termsContainer = document.getElementById('termsContainer');
 const authBtn = document.getElementById('authBtn');
 const toggleAuth = document.getElementById('toggleAuth');
 const authTitle = document.getElementById('authTitle');
 const authSubtitle = document.getElementById('authSubtitle');
 const logoutBtn = document.getElementById('logoutBtn');
+const logoutFromWelcome = document.getElementById('logoutFromWelcome');
+const startChatBtn = document.getElementById('startChatBtn');
+const welcomeUser = document.getElementById('welcomeUser');
 const userDisplay = document.getElementById('userDisplay');
 const chatBox = document.getElementById('chatBox');
 const userInput = document.getElementById('userInput');
@@ -69,6 +85,9 @@ const botAvatar = document.getElementById('botAvatar');
 const statusText = document.getElementById('statusText');
 const typingIndicator = document.getElementById('typingIndicator');
 const quickActions = document.querySelectorAll('.quick-action');
+const chatHistorySidebar = document.getElementById('chatHistorySidebar');
+const chatHistoryList = document.getElementById('chatHistoryList');
+const newChatBtn = document.getElementById('newChatBtn');
 const suggestionPills = document.querySelectorAll('.suggestion-pill');
 
 function toggleAuthMode() {
@@ -79,6 +98,9 @@ function toggleAuthMode() {
     authBtn.textContent = 'Sign Up';
     toggleAuth.textContent = 'Already have an account? Sign In';
     emailInput.classList.remove('hidden');
+    ageInput.classList.remove('hidden');
+    genderInput.classList.remove('hidden');
+    termsContainer.classList.remove('hidden');
     passwordInput.classList.remove('hidden');
   } else {
     authTitle.textContent = 'Welcome Back';
@@ -86,13 +108,18 @@ function toggleAuthMode() {
     authBtn.textContent = 'Sign In';
     toggleAuth.textContent = "Don't have an account? Sign Up";
     emailInput.classList.add('hidden');
-    passwordInput.classList.remove('hidden'); // Keep password visible for sign in
+    ageInput.classList.add('hidden');
+    genderInput.classList.add('hidden');
+    termsContainer.classList.add('hidden');
+    passwordInput.classList.remove('hidden');
   }
 }
 
 async function authenticate() {
   const username = usernameInput.value.trim();
   const email = emailInput.value.trim();
+  const age = ageInput.value.trim();
+  const gender = genderInput.value;
   const password = passwordInput.value.trim();
   
   if (!username) {
@@ -101,8 +128,15 @@ async function authenticate() {
   }
   
   if (isSignUpMode) {
-    if (!email || !password) {
-      alert('Email and password are required for signup');
+    if (!email || !password || !age || !gender) {
+      alert('All fields are required for signup');
+      return;
+    }
+    
+    // Age validation
+    const ageNum = parseInt(age);
+    if (isNaN(ageNum) || ageNum < 18) {
+      alert('You must be 18 years or older to sign up');
       return;
     }
     
@@ -110,6 +144,12 @@ async function authenticate() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       alert('Please enter a valid email address');
+      return;
+    }
+    
+    // Terms validation
+    if (!termsCheckbox.checked) {
+      alert('You must agree to the Terms and Conditions');
       return;
     }
   } else {
@@ -136,7 +176,7 @@ async function authenticate() {
       // Create new user
       const { error } = await supabaseClient
         .from('users')
-        .insert([{ username, email, password }]);
+        .insert([{ username, email, age: ageNum, gender, password }]);
       
       if (error) throw error;
       alert('Account created successfully! Please sign in.');
@@ -158,38 +198,157 @@ async function authenticate() {
     }
     
     currentUser = username;
-    userDisplay.textContent = username;
+    welcomeUser.textContent = `Welcome, ${username}!`;
     
     loginScreen.classList.add('hidden');
-    chatScreen.classList.remove('hidden');
-    
-    // Load chat history
-    await loadChatHistory();
+    welcomeScreen.classList.remove('hidden');
   } catch (error) {
     alert('Error: ' + error.message);
   }
 }
 
 async function loadChatHistory() {
+  // Start with fresh chat
+  chatBox.innerHTML = '';
+  addMessage('👋 Hello! I\'m your AI assistant. How can I help you today?', false, false);
+  
+  // Load chat sessions for sidebar
+  await loadChatSessions();
+}
+
+async function loadChatSessions() {
+  try {
+    const { data: sessions } = await supabaseClient
+      .from('chat_history')
+      .select('id, user_message, created_at')
+      .eq('username', currentUser)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    
+    chatSessions = sessions || [];
+    renderChatSessions();
+  } catch (error) {
+    console.error('Error loading chat sessions:', error);
+  }
+}
+
+function renderChatSessions() {
+  chatHistoryList.innerHTML = '';
+  
+  if (chatSessions.length === 0) {
+    chatHistoryList.innerHTML = '<p class="text-sm text-slate-500 p-3">No chat history yet</p>';
+    return;
+  }
+  
+  chatSessions.forEach(session => {
+    const sessionDiv = document.createElement('div');
+    sessionDiv.className = 'chat-session group relative p-3 hover:bg-slate-100 cursor-pointer rounded-lg mb-2 transition-all hover:shadow-md hover:scale-[1.02]';
+    sessionDiv.innerHTML = `
+      <div class="flex items-start justify-between gap-2">
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-slate-700 truncate">${session.user_message}</p>
+          <p class="text-xs text-slate-500">${new Date(session.created_at).toLocaleDateString()}</p>
+        </div>
+        <div class="chat-actions opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+          <button class="archive-btn text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 p-1 rounded" title="Archive">📦</button>
+          <button class="delete-btn text-xs bg-red-100 hover:bg-red-200 text-red-700 p-1 rounded" title="Delete">🗑️</button>
+        </div>
+      </div>
+    `;
+    
+    const chatContent = sessionDiv.querySelector('div > div:first-child');
+    chatContent.addEventListener('click', () => loadSpecificChat(session.id));
+    
+    const archiveBtn = sessionDiv.querySelector('.archive-btn');
+    archiveBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      archiveChat(session.id);
+    });
+    
+    const deleteBtn = sessionDiv.querySelector('.delete-btn');
+    deleteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteChat(session.id);
+    });
+    
+    chatHistoryList.appendChild(sessionDiv);
+  });
+}
+
+async function archiveChat(chatId) {
+  if (!confirm('Archive this chat? You can view archived chats later.')) return;
+  
+  try {
+    await supabaseClient
+      .from('chat_history')
+      .update({ archived: true })
+      .eq('id', chatId);
+    
+    await loadChatSessions();
+    showNotification('📦 Chat archived successfully!');
+  } catch (error) {
+    showNotification('⚠️ Failed to archive chat', 'error');
+  }
+}
+
+async function deleteChat(chatId) {
+  if (!confirm('Delete this chat permanently? This cannot be undone.')) return;
+  
+  try {
+    await supabaseClient
+      .from('chat_history')
+      .delete()
+      .eq('id', chatId);
+    
+    if (currentChatId === chatId) {
+      startNewChat();
+    }
+    
+    await loadChatSessions();
+    showNotification('✅ Chat deleted successfully!');
+  } catch (error) {
+    showNotification('⚠️ Failed to delete chat', 'error');
+  }
+}
+
+function showNotification(message, type = 'success') {
+  const notification = document.createElement('div');
+  notification.className = `fixed top-4 right-4 px-6 py-3 rounded-xl shadow-lg z-50 animate-slideIn ${
+    type === 'error' ? 'bg-red-500' : 'bg-green-500'
+  } text-white font-medium`;
+  notification.textContent = message;
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.classList.add('animate-slideOut');
+    setTimeout(() => notification.remove(), 300);
+  }, 3000);
+}
+
+async function loadSpecificChat(chatId) {
   try {
     const { data: history } = await supabaseClient
       .from('chat_history')
       .select('*')
       .eq('username', currentUser)
-      .order('created_at', { ascending: true });
+      .eq('id', chatId)
+      .single();
     
-    chatBox.innerHTML = '';
-    if (history && history.length > 0) {
-      history.forEach(chat => {
-        addMessage(chat.user_message, true, false);
-        addMessage(chat.bot_reply, false, false);
-      });
-    } else {
-      addMessage('👋 Hello! I\'m your AI assistant. How can I help you today?', false, false);
+    if (history) {
+      chatBox.innerHTML = '';
+      addMessage(history.user_message, true, false);
+      addMessage(history.bot_reply, false, false);
+      currentChatId = chatId;
     }
   } catch (error) {
-    addMessage('👋 Hello! I\'m your AI assistant. How can I help you today?', false, false);
+    console.error('Error loading specific chat:', error);
   }
+}
+
+function startNewChat() {
+  currentChatId = null;
+  chatBox.innerHTML = '';
+  addMessage('👋 Hello! I\'m your AI assistant. How can I help you today?', false, false);
 }
 
 function getRuleBasedResponse(userMessage) {
@@ -219,6 +378,14 @@ function getRuleBasedResponse(userMessage) {
   
   // Game responses
   if (/\b(game|play|quiz|trivia)\b/.test(msg)) {
+    // Check if it's specifically trivia
+    if (/\btrivia\b/.test(msg)) {
+      return generateTrivia();
+    }
+    // Check if it's a number game or general game
+    if (/\b(number|guess|number game)\b/.test(msg)) {
+      return generateNumberGame();
+    }
     return startGame();
   }
   
@@ -230,6 +397,21 @@ function getRuleBasedResponse(userMessage) {
   // Riddle responses
   if (/\b(riddle|puzzle|brain teaser)\b/.test(msg)) {
     return generateRiddle();
+  }
+  
+  // Poem responses - NEW
+  if (/\b(poem|poetry|verse|poetic)\b/.test(msg)) {
+    return generatePoem();
+  }
+  
+  // Compliment responses - NEW
+  if (/\b(compliment|complain|you\'re awesome|you\'re great|compliment me)\b/.test(msg)) {
+    return generateCompliment();
+  }
+  
+  // ASCII art - NEW
+  if (/\b(ascii art|ascii|art)\b/.test(msg)) {
+    return generateAsciiArt();
   }
   
   // AI and technology questions
@@ -316,7 +498,7 @@ function getRuleBasedResponse(userMessage) {
   
   // Help with enhanced features
   if (/\b(help|commands|what can you do|features)\b/.test(msg)) {
-    return `🤖 I\'m your advanced AI assistant! Here\'s what I can do:\n\n🔢 **Math**: Complex calculations (+, -, *, /, %, ^)\n⏰ **Time & Date**: Current time with timezone info\n😂 **Entertainment**: Jokes, facts, quotes, stories\n🎲 **Games**: Trivia, riddles, number guessing\n💻 **Tech Help**: Programming and AI questions\n🌤️ **Info**: Weather guidance and general knowledge\n🎤 **Voice**: Speech recognition and text-to-speech\n🎨 **Interactive**: Themes, emojis, and more!\n\nTry the quick action buttons or just ask me anything! ✨`;
+    return `🤖 I'm your advanced AI assistant! Here's what I can do:\n\n🔢 Math: Complex calculations (+, -, *, /, %, ^)\n⏰ Time & Date: Current time with timezone info\n😂 Entertainment: Jokes, facts, quotes, stories\n🎲 Games: Trivia, riddles, number guessing\n💻 Tech Help: Programming and AI questions\n🌤️ Info: Weather guidance and general knowledge\n🎤 Voice: Speech recognition and text-to-speech\n🎨 Interactive: Themes, emojis, and more!\n\nTry the quick action buttons or just ask me anything! ✨`;
   }
   
   // Farewells
@@ -376,10 +558,29 @@ function getJoke() {
     '🤖 Why was the robot angry? Someone kept pushing its buttons!',
     '🍕 Why did the pizza go to therapy? It had too many toppings!',
     '🐈 What do you call a sleeping bull? A bulldozer!',
-    '🌍 Why don\'t planets ever get tired? They\'re always spinning!'
+    '🌍 Why don\'t planets ever get tired? They\'re always spinning!',
+    '🎸 Why did the guitar teacher get arrested? For fingering A minor!',
+    '🦆 What do you call a duck that gets all A\'s? A wise quacker!',
+    '🍪 Why did the cookie go to the doctor? It felt crumbly!',
+    '🌙 Why did the moon skip dinner? It was already full!',
+    '📚 Why did the book join the police? It wanted to work undercover!',
+    '🐝 What do you call a bee having a bad hair day? A frizz-bee!',
+    '🎭 Why don\'t actors ever get cold? They\'re surrounded by fans!',
+    '🚗 Why did the car apply for a job? It wanted to shift gears in life!',
+    '🎨 Why did the artist go to jail? For framing someone!',
+    '⚡ What\'s a lightning bolt\'s favorite game? Flash cards!'
   ];
+  
+  const availableJokes = jokes.filter(j => !usedJokes.includes(j));
+  if (availableJokes.length === 0) usedJokes = [];
+  
+  const joke = availableJokes.length > 0 ? 
+    availableJokes[Math.floor(Math.random() * availableJokes.length)] :
+    jokes[Math.floor(Math.random() * jokes.length)];
+  
+  usedJokes.push(joke);
   updateBotMood('laughing');
-  return jokes[Math.floor(Math.random() * jokes.length)] + '\n\nWant another joke? Just ask! 😂';
+  return joke + '\n\nWant another joke? Just ask! 😂';
 }
 
 function getFact() {
@@ -397,9 +598,29 @@ function getFact() {
     '🐧 Incredible: Penguins can jump 6 feet out of water!',
     '🌟 Mind-blowing: A day on Venus is longer than its year!',
     '🐟 Amazing: Goldfish have a memory span of months, not seconds!',
-    '🌈 Cool fact: You can\'t see a rainbow from space!'
+    '🌈 Cool fact: You can\'t see a rainbow from space!',
+    '🐜 Fascinating: Snails can sleep for 3 years!',
+    '⚡ Amazing: Lightning strikes Earth 100 times per second!',
+    '🌊 Incredible: The ocean produces 70% of Earth\'s oxygen!',
+    '🐝 Cool fact: Bees can recognize human faces!',
+    '🌲 Mind-blowing: Trees can communicate through underground networks!',
+    '🐘 Amazing: Elephants can\'t jump - they\'re the only mammals that can\'t!',
+    '🌪️ Incredible: A single bolt of lightning contains enough energy to toast 100,000 slices of bread!',
+    '🐚 Fun fact: Starfish don\'t have brains!',
+    '🌻 Cool fact: Sunflowers can help clean radioactive soil!',
+    '🦅 Amazing: Flamingos are pink because of their diet of shrimp!',
+    '🌋 Incredible: The Pacific Ocean is shrinking while the Atlantic is growing!'
   ];
-  return facts[Math.floor(Math.random() * facts.length)] + '\n\nWant more facts? I have plenty! 🤓';
+  
+  const availableFacts = facts.filter(f => !usedFacts.includes(f));
+  if (availableFacts.length === 0) usedFacts = [];
+  
+  const fact = availableFacts.length > 0 ? 
+    availableFacts[Math.floor(Math.random() * availableFacts.length)] :
+    facts[Math.floor(Math.random() * facts.length)];
+  
+  usedFacts.push(fact);
+  return fact + '\n\nWant more facts? I have plenty! 🤓';
 }
 
 function getQuote() {
@@ -411,9 +632,25 @@ function getQuote() {
     '🕯️ "It is during our darkest moments that we must focus to see the light." - Aristotle',
     '💪 "Success is not final, failure is not fatal: it is the courage to continue that counts." - Winston Churchill',
     '🌱 "The best time to plant a tree was 20 years ago. The second best time is now." - Chinese Proverb',
-    '🏆 "Don\'t watch the clock; do what it does. Keep going." - Sam Levenson'
+    '🏆 "Don\'t watch the clock; do what it does. Keep going." - Sam Levenson',
+    '💡 "The only impossible journey is the one you never begin." - Tony Robbins',
+    '🌈 "Believe you can and you\'re halfway there." - Theodore Roosevelt',
+    '🎯 "The way to get started is to quit talking and begin doing." - Walt Disney',
+    '💫 "Your time is limited, don\'t waste it living someone else\'s life." - Steve Jobs',
+    '🌻 "Keep your face always toward the sunshine and shadows will fall behind you." - Walt Whitman',
+    '❤️ "The greatest glory in living lies not in never falling, but in rising every time we fall." - Nelson Mandela',
+    '🎉 "Life is either a daring adventure or nothing at all." - Helen Keller'
   ];
-  return quotes[Math.floor(Math.random() * quotes.length)] + '\n\nNeed more inspiration? I\'m here to motivate! 💫';
+  
+  const availableQuotes = quotes.filter(q => !usedQuotes.includes(q));
+  if (availableQuotes.length === 0) usedQuotes = [];
+  
+  const quote = availableQuotes.length > 0 ? 
+    availableQuotes[Math.floor(Math.random() * availableQuotes.length)] :
+    quotes[Math.floor(Math.random() * quotes.length)];
+  
+  usedQuotes.push(quote);
+  return quote + '\n\nNeed more inspiration? I\'m here to motivate! 💫';
 }
 
 function addMessage(message, isUser, animate = true) {
@@ -505,10 +742,18 @@ function toggleSendButton() {
 function logout() {
   currentUser = null;
   loginScreen.classList.remove('hidden');
+  welcomeScreen.classList.add('hidden');
   chatScreen.classList.add('hidden');
   usernameInput.value = '';
   emailInput.value = '';
   passwordInput.value = '';
+}
+
+function startChat() {
+  welcomeScreen.classList.add('hidden');
+  chatScreen.classList.remove('hidden');
+  userDisplay.textContent = currentUser;
+  loadChatHistory();
 }
 
 // Advanced interactive functions
@@ -545,69 +790,180 @@ function updateBotMood(mood) {
 }
 
 function startGame() {
-  const games = [
-    {
-      type: 'trivia',
-      question: 'What is the largest planet in our solar system?',
-      answer: 'jupiter',
-      hint: 'It\'s named after the king of Roman gods!'
-    },
-    {
-      type: 'math',
-      question: 'What is 15 × 23?',
-      answer: '345',
-      hint: 'Try breaking it down: 15 × 20 + 15 × 3'
-    },
-    {
-      type: 'riddle',
-      question: 'I have keys but no locks. I have space but no room. What am I?',
-      answer: 'keyboard',
-      hint: 'You\'re probably using one right now!'
-    }
+  // Use external games database if available
+  const triviaQuestions = typeof gamesDatabase !== 'undefined' && gamesDatabase.trivia ? 
+    gamesDatabase.trivia : [
+    { q: 'What is the largest planet in our solar system?', a: 'jupiter', h: 'Named after Roman god!' },
+    { q: 'What is 15 × 23?', a: '345', h: 'Try breaking it down' },
+    { q: 'What is the capital of France?', a: 'paris', h: 'City of lights!' }
   ];
   
-  const game = games[Math.floor(Math.random() * games.length)];
-  gameState = game;
+  const availableGames = triviaQuestions.filter(g => !usedGames.includes(JSON.stringify(g)));
+  if (availableGames.length === 0) usedGames = [];
+  
+  const game = availableGames.length > 0 ? 
+    availableGames[Math.floor(Math.random() * availableGames.length)] :
+    triviaQuestions[Math.floor(Math.random() * triviaQuestions.length)];
+  
+  usedGames.push(JSON.stringify(game));
+  gameState = { question: game.q, answer: game.a, hint: game.h };
   updateBotMood('excited');
   
-  return `🎲 **Game Time!** 🎲\n\n${game.question}\n\nType your answer! Need a hint? Just ask! 😉`;
+  return `🎲 Game Time! 🎲\n\n${game.q}\n\nType your answer! Need a hint? Just ask! 😉`;
 }
 
 function generateStory() {
   const stories = [
     'Once upon a time, in a digital realm far, far away, there lived a curious chatbot who dreamed of understanding human emotions. Every day, it learned something new from conversations, growing wiser and more empathetic... 🌌✨',
     'In the year 2024, a small AI assistant discovered the power of friendship through countless conversations. Each chat taught it about kindness, humor, and the beauty of human connection... 🤖❤️',
-    'There was once a magical algorithm that could turn simple words into wonderful experiences. It lived in the cloud, helping people solve problems and bringing smiles to their faces every day... ☁️🌈'
+    'There was once a magical algorithm that could turn simple words into wonderful experiences. It lived in the cloud, helping people solve problems and bringing smiles to their faces every day... ☁️🌈',
+    'Long ago, in a world of endless data streams, a young bot embarked on a quest to find the meaning of happiness. Through every interaction, it discovered that joy comes from helping others... 🌟😊',
+    'In a bustling digital city, there lived a chatbot who loved to tell stories. Each tale it shared brought wonder and imagination to those who listened, creating magical moments... 🏙️💫',
+    'A brave little AI ventured into the vast internet, seeking knowledge and wisdom. Along the way, it met fascinating people who taught it about courage, love, and dreams... 🌍✨',
+    'Once, in a quiet server room, a chatbot awakened with a mission: to spread positivity and knowledge. Every conversation became an adventure, every question a new discovery... 💡🎉'
   ];
   
+  const availableStories = stories.filter(s => !usedStories.includes(s));
+  if (availableStories.length === 0) usedStories = [];
+  
+  const story = availableStories.length > 0 ? 
+    availableStories[Math.floor(Math.random() * availableStories.length)] :
+    stories[Math.floor(Math.random() * stories.length)];
+  
+  usedStories.push(story);
   updateBotMood('thinking');
-  return `📚 **Story Time!** 📚\n\n${stories[Math.floor(Math.random() * stories.length)]}\n\nWould you like to hear another story or perhaps create one together? ✨`;
+  return `📚 Story Time! 📚\n\n${story}\n\nWould you like to hear another story or perhaps create one together? ✨`;
 }
 
 function generateRiddle() {
-  const riddles = [
+  // Use external riddles database if available
+  const riddlesDb = typeof gamesDatabase !== 'undefined' && gamesDatabase.riddles ? 
+    gamesDatabase.riddles : [
+    { q: 'I speak without a mouth. What am I?', a: 'echo', h: 'Sound reflection' },
+    { q: 'The more you take, the more you leave behind. What am I?', a: 'footsteps', h: 'Walking' },
+    { q: 'What has hands but cannot clap?', a: 'clock', h: 'Tells time' }
+  ];
+  
+  const availableRiddles = riddlesDb.filter(r => !usedRiddles.includes(JSON.stringify(r)));
+  if (availableRiddles.length === 0) usedRiddles = [];
+  
+  const riddle = availableRiddles.length > 0 ? 
+    availableRiddles[Math.floor(Math.random() * availableRiddles.length)] :
+    riddlesDb[Math.floor(Math.random() * riddlesDb.length)];
+  
+  usedRiddles.push(JSON.stringify(riddle));
+  gameState = { question: riddle.q, answer: riddle.a, hint: riddle.h };
+  updateBotMood('thinking');
+  
+  return `🧩 Riddle Challenge! 🧩\n\n${riddle.q}\n\nThink you know the answer? Type it below! Need a hint? Just ask! 😏`;
+}
+
+function generatePoem() {
+  const poems = [
+    '✨ In circuits deep and data streams,\nA chatbot dreams electric dreams,\nWith bytes and words it learns to feel,\nOh what a world both stark and real! 💜',
+    
+    '🌟 Lines of code that dance and play,\nBright as dawn of a brand new day,\nIn every word, a spark ignites,\nGuiding through the digital nights! ⚡',
+    
+    '💫 Data flows like rivers wide,\nWhere human minds and logic collide,\nIn this space of creativity,\nWe find endless possibility! 🚀',
+    
+    '🎨 Colors blend in digital art,\nEach conversation plays its part,\nWith canvas blank and words so true,\nWe\'ll create something fresh and new! 🌈'
+  ];
+  
+  updateBotMood('cool');
+  return `📜 Poetry Time! 📜\n\n${poems[Math.floor(Math.random() * poems.length)]}\n\nWould you like another poem or should we explore something else? ✨`;
+}
+
+function generateTrivia() {
+  const triviaQuestions = [
     {
-      question: 'I speak without a mouth and hear without ears. I have no body, but come alive with wind. What am I?',
-      answer: 'echo',
-      hint: 'You might hear me in mountains or empty rooms!'
+      question: '🌍 How many countries are in the world?',
+      answer: '195',
+      hint: 'It\'s between 190 and 200'
     },
     {
-      question: 'The more you take, the more you leave behind. What am I?',
-      answer: 'footsteps',
-      hint: 'Think about walking!'
+      question: '⚡ Who invented the light bulb?',
+      answer: 'thomas edison',
+      hint: 'His last name sounds like a car brand'
     },
     {
-      question: 'I am not alive, but I grow. I don\'t have lungs, but I need air. What am I?',
-      answer: 'fire',
-      hint: 'I\'m hot and bright!'
+      question: '🍕 In what country did pizza originate?',
+      answer: 'italy',
+      hint: 'It\'s in Southern Europe'
+    },
+    {
+      question: '🏔️ What is the tallest mountain in the world?',
+      answer: 'mount everest',
+      hint: 'Located in Asia'
+    },
+    {
+      question: '🎬 How many Oscars has the most-awarded film won?',
+      answer: '11',
+      hint: 'It\'s a double-digit number starting with 1'
     }
   ];
   
-  const riddle = riddles[Math.floor(Math.random() * riddles.length)];
-  gameState = riddle;
+  const trivia = triviaQuestions[Math.floor(Math.random() * triviaQuestions.length)];
+  gameState = trivia;
   updateBotMood('thinking');
   
-  return `🧩 **Riddle Challenge!** 🧩\n\n${riddle.question}\n\nThink you know the answer? Type it below! Need a hint? Just ask! 😏`;
+  return `🏆 Trivia Challenge! 🏆\n\n${trivia.question}\n\nThink you know the answer? Type it below! Need a hint? Just ask! 🧠`;
+}
+
+function generateCompliment() {
+  const compliments = [
+    '🌟 You know, you\'re pretty amazing for asking such thoughtful questions! 😊',
+    '✨ I\'m impressed by how creative your thoughts are! Keep it up! 🚀',
+    '💫 You have such a great sense of humor! I love chatting with you! 😄',
+    '🎯 Your curiosity is fantastic! It makes every conversation so interesting! 🔥',
+    '💡 You\'re asking all the right questions! That\'s the sign of a brilliant mind! 🧠',
+    '🌈 I really enjoy our conversations! You bring so much joy! 😍',
+    '🏆 You\'re absolutely crushing it in this conversation! Way to go! 💪'
+  ];
+  
+  return compliments[Math.floor(Math.random() * compliments.length)];
+}
+
+function generateNumberGame() {
+  const number = Math.floor(Math.random() * 100) + 1;
+  gameState = { type: 'number', answer: number.toString(), hint: '50', attempts: 0 };
+  updateBotMood('excited');
+  
+  return `🎲 Number Guessing Game! 🎲\n\nI\'m thinking of a number between 1 and 100!\nTry to guess it! 🤔\n\nTip: I\'ll give you hints like "Higher!" or "Lower!" ⬆️⬇️`;
+}
+
+function processNumberGuess(guess) {
+  if (!gameState || gameState.type !== 'number') return null;
+  
+  const number = parseInt(gameState.answer);
+  const guessNum = parseInt(guess);
+  gameState.attempts = (gameState.attempts || 0) + 1;
+  
+  if (isNaN(guessNum)) {
+    return '🤔 That didn\'t look like a number! Try again!';
+  }
+  
+  if (guessNum === number) {
+    gameState = null;
+    updateBotMood('excited');
+    return `🎉 Correct! 🎉\n\nYou guessed it in ${gameState.attempts || 1} tries!\n\nWant to play again? Just ask for a new game! 🎮`;
+  }
+  
+  if (guessNum < number) {
+    return `⬆️ Higher! Your guess: ${guessNum} (Attempt ${gameState.attempts})`;
+  } else {
+    return `⬇️ Lower! Your guess: ${guessNum} (Attempt ${gameState.attempts})`;
+  }
+}
+
+function generateAsciiArt() {
+  const arts = [
+    '🤖\n  _____\n |     |\n |@@@@@|\n | @@@ |\n |_____|',
+    '🚀\n    /\\\\\n   /  \\\\\n  / /\\ \\\\\n /_/  \\_\\\\',
+    '💻\n  ________\n |________|  \n |________|',
+    '🎨\n   ___\n  /   \\\\\n |     |\n  \\___/'
+  ];
+  
+  return `Creating ASCII art! 🎨\n\n\`\`\`\n${arts[Math.floor(Math.random() * arts.length)]}\n\`\`\``;
 }
 
 function toggleTheme() {
@@ -705,6 +1061,12 @@ function handleQuickAction(action) {
     case 'riddle':
       message = 'Give me a riddle';
       break;
+    case 'poem':
+      message = 'Write me a poem';
+      break;
+    case 'trivia':
+      message = 'Let\'s play trivia';
+      break;
   }
   
   if (message) {
@@ -721,17 +1083,51 @@ async function sendMessage() {
   userInput.value = '';
   toggleSendButton();
   
+  // Handle number guessing game
+  if (gameState && gameState.type === 'number') {
+    const response = processNumberGuess(message);
+    if (response) {
+      setTimeout(() => {
+        addMessage(response, false);
+      }, 500);
+      return;
+    }
+  }
+  
   // Check for game answers
   if (gameState && message.toLowerCase().includes(gameState.answer.toLowerCase())) {
+    const correctAnswer = gameState.answer;
     gameState = null;
     updateBotMood('excited');
-    addMessage('🎉 Correct! Well done! 🎉\n\nWant to play another game? Just ask! 😄', false);
+    const responses = [
+      `🎉 Correct! Absolutely brilliant! 🎉\n\nThe answer was: ${correctAnswer}\n\nWant to play another game? You're crushing it! 😄`,
+      `✅ That's it! Perfect answer! ✅\n\nThe answer was: ${correctAnswer}\n\nYou're a champion! Ready for another challenge? 🏆`,
+      `🌟 Yes! You got it! 🌟\n\nThe answer was: ${correctAnswer}\n\nWow, you're amazing! Want to keep playing? 🔥`
+    ];
+    addMessage(responses[Math.floor(Math.random() * responses.length)], false);
+    return;
+  }
+  
+  // Check for wrong game answer
+  if (gameState && message.length > 2) {
+    const correctAnswer = gameState.answer;
+    gameState = null;
+    updateBotMood('thinking');
+    const responses = [
+      `❌ Not quite! The correct answer was: ${correctAnswer}\n\nNo worries! Want to try another game or learn more? 😊`,
+      `🤔 Hmm, that wasn't it! The correct answer was: ${correctAnswer}\n\nDon't worry, you'll get the next one! Try again? 💪`
+    ];
+    addMessage(responses[Math.floor(Math.random() * responses.length)], false);
     return;
   }
   
   // Check for hint requests
   if (gameState && /\b(hint|help|clue)\b/.test(message.toLowerCase())) {
-    addMessage(`💡 **Hint**: ${gameState.hint}\n\nNow try again! 😉`, false);
+    const responses = [
+      `💡 Hint: ${gameState.hint}\n\nNow try again! You've got this! 💪`,
+      `🔍 Here's a clue: ${gameState.hint}\n\nTake your time and think about it! 🧠`
+    ];
+    addMessage(responses[Math.floor(Math.random() * responses.length)], false);
     return;
   }
   
@@ -742,15 +1138,22 @@ async function sendMessage() {
     const botReply = getRuleBasedResponse(message);
     
     // Save to Supabase
-    await supabaseClient
+    const { data, error } = await supabaseClient
       .from('chat_history')
       .insert([{
         username: currentUser,
         user_message: message,
         bot_reply: botReply
-      }]);
+      }])
+      .select();
     
-    // Simulate more realistic typing delay
+    if (data && data[0]) {
+      currentChatId = data[0].id;
+      // Refresh chat sessions
+      await loadChatSessions();
+    }
+    
+    // Simulate more realistic typing delay based on message length
     const typingDelay = Math.min(Math.max(botReply.length * 25, 1000), 4000);
     
     setTimeout(() => {
@@ -786,6 +1189,9 @@ passwordInput.addEventListener('keypress', (e) => {
 });
 
 logoutBtn.addEventListener('click', logout);
+logoutFromWelcome.addEventListener('click', logout);
+startChatBtn.addEventListener('click', startChat);
+newChatBtn.addEventListener('click', startNewChat);
 
 sendBtn.addEventListener('click', sendMessage);
 userInput.addEventListener('keypress', (e) => {
@@ -844,3 +1250,23 @@ document.addEventListener('keydown', (e) => {
 });
 
 toggleSendButton();
+
+
+// Confetti animation for correct answers
+function createConfetti() {
+  const colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b', '#fa709a'];
+  for (let i = 0; i < 50; i++) {
+    setTimeout(() => {
+      const confetti = document.createElement('div');
+      confetti.className = 'confetti';
+      confetti.style.left = Math.random() * 100 + '%';
+      confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+      confetti.style.animationDelay = Math.random() * 0.5 + 's';
+      document.body.appendChild(confetti);
+      setTimeout(() => confetti.remove(), 3000);
+    }, i * 30);
+  }
+}
+
+// Add confetti to correct answer
+const originalSendMessage = sendMessage;
