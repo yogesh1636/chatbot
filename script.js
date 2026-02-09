@@ -1250,23 +1250,3 @@ document.addEventListener('keydown', (e) => {
 });
 
 toggleSendButton();
-
-
-// Confetti animation for correct answers
-function createConfetti() {
-  const colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b', '#fa709a'];
-  for (let i = 0; i < 50; i++) {
-    setTimeout(() => {
-      const confetti = document.createElement('div');
-      confetti.className = 'confetti';
-      confetti.style.left = Math.random() * 100 + '%';
-      confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-      confetti.style.animationDelay = Math.random() * 0.5 + 's';
-      document.body.appendChild(confetti);
-      setTimeout(() => confetti.remove(), 3000);
-    }, i * 30);
-  }
-}
-
-// Add confetti to correct answer
-const originalSendMessage = sendMessage;
