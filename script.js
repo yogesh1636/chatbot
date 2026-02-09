@@ -98,7 +98,6 @@ function toggleAuthMode() {
     authBtn.textContent = 'Sign Up';
     toggleAuth.textContent = 'Already have an account? Sign In';
     emailInput.classList.remove('hidden');
-    ageInput.classList.remove('hidden');
     genderInput.classList.remove('hidden');
     termsContainer.classList.remove('hidden');
     passwordInput.classList.remove('hidden');
@@ -108,7 +107,6 @@ function toggleAuthMode() {
     authBtn.textContent = 'Sign In';
     toggleAuth.textContent = "Don't have an account? Sign Up";
     emailInput.classList.add('hidden');
-    ageInput.classList.add('hidden');
     genderInput.classList.add('hidden');
     termsContainer.classList.add('hidden');
     passwordInput.classList.remove('hidden');
